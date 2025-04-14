@@ -194,4 +194,124 @@ public class TestsSimulateur {
         assertEquals(   Integer.valueOf(impotAttendu), simulateur.getImpotSurRevenuNet());
     }
 
+    @DisplayName("Test des parts avec uniquement des enfants en situation de handicap")
+    @ParameterizedTest
+    @MethodSource("donneesEnfantsHandicapesSeulement")
+    public void testPartsAvecEnfantsHandicapesSeulement(int revenu, String situation, int nbEnfantsHandicap, double expectedParts, int nbEnfants) {
+        simulateur.setRevenusNetDeclarant1(revenu);
+        simulateur.setRevenusNetDeclarant2(0);
+        simulateur.setSituationFamiliale(SituationFamiliale.valueOf(situation));
+        simulateur.setNbEnfantsACharge(nbEnfants);
+        simulateur.setNbEnfantsSituationHandicap(nbEnfantsHandicap);
+        simulateur.setParentIsole(false);
+
+        simulateur.calculImpotSurRevenuNet();
+        assertEquals(expectedParts, simulateur.getNbPartsFoyerFiscal());
+    }
+
+    public static Stream<Arguments> donneesEnfantsHandicapesSeulement() {
+        return Stream.of(
+                Arguments.of(24000, "CELIBATAIRE", 1, 2, 1),
+                Arguments.of(24000, "MARIE", 2, 4, 2)
+        );
+    }
+
+    @DisplayName("Test des parts avec enfants à charge et handicapés")
+    @ParameterizedTest
+    @MethodSource("donneesEnfantsCombines")
+    public void testPartsAvecEnfantsCombines(int revenu, String situation, int enfants, int enfantsHandicap, double expectedParts) {
+        simulateur.setRevenusNetDeclarant1(revenu);
+        simulateur.setRevenusNetDeclarant2(0);
+        simulateur.setSituationFamiliale(SituationFamiliale.valueOf(situation));
+        simulateur.setNbEnfantsACharge(enfants);
+        simulateur.setNbEnfantsSituationHandicap(enfantsHandicap);
+        simulateur.setParentIsole(false);
+
+        simulateur.calculImpotSurRevenuNet();
+        assertEquals(expectedParts, simulateur.getNbPartsFoyerFiscal());
+    }
+
+    public static Stream<Arguments> donneesEnfantsCombines() {
+        return Stream.of(
+                Arguments.of(24000, "CELIBATAIRE", 3, 1, 3.5),
+                Arguments.of(24000, "MARIE", 2, 1, 3.5)
+        );
+    }
+
+    @DisplayName("Test abattement à la limite haute de 10%")
+    @ParameterizedTest
+    @MethodSource("donneesAbattementBorne")
+    public void testAbattementBorne(int revenu, int abattementAttendu) {
+        simulateur.setRevenusNetDeclarant1(revenu);
+        simulateur.setRevenusNetDeclarant2(0);
+        simulateur.setSituationFamiliale(SituationFamiliale.CELIBATAIRE);
+        simulateur.setNbEnfantsACharge(0);
+        simulateur.setNbEnfantsSituationHandicap(0);
+        simulateur.setParentIsole(false);
+
+        simulateur.calculImpotSurRevenuNet();
+        assertEquals(abattementAttendu, simulateur.getAbattement());
+    }
+
+    public static Stream<Arguments> donneesAbattementBorne() {
+        return Stream.of(
+                Arguments.of(141710, 14171),
+                Arguments.of(141700, 14170),
+                Arguments.of(141720, 14171)
+        );
+    }
+
+    @DisplayName("Test du plafonnement du quotient familial")
+    @ParameterizedTest
+    @MethodSource("donneesQuotientPlafond")
+    public void testPlafondQuotientFamilial(int revenuNet, String situation, int nbEnfants, int nbEnfantsHandicap, double expectedParts, int expectedImpotMax) {
+        simulateur.setRevenusNetDeclarant1(revenuNet);
+        simulateur.setRevenusNetDeclarant2(0);
+        simulateur.setSituationFamiliale(SituationFamiliale.valueOf(situation));
+        simulateur.setNbEnfantsACharge(nbEnfants);
+        simulateur.setNbEnfantsSituationHandicap(nbEnfantsHandicap);
+        simulateur.setParentIsole(false);
+
+        simulateur.calculImpotSurRevenuNet();
+        assertEquals(expectedParts, simulateur.getNbPartsFoyerFiscal());
+        assertEquals(expectedImpotMax, simulateur.getImpotSurRevenuNet());
+    }
+
+    public static Stream<Arguments> donneesQuotientPlafond() {
+        return Stream.of(
+                Arguments.of(120000, "MARIE", 4, 0, 5, 8270),
+                Arguments.of(120000, "CELIBATAIRE", 4, 0, 4, 17955)
+        );
+    }
+
+    @DisplayName("Test du plafonnement du quotient familial")
+    @ParameterizedTest
+    @MethodSource("donneesParametres")
+    public void testParametres(int r1, int r2, SituationFamiliale sf, int enf, int enfH, boolean iso) {
+        simulateur.setRevenusNetDeclarant1(r1);
+        simulateur.setRevenusNetDeclarant2(r2);
+        simulateur.setSituationFamiliale(SituationFamiliale.valueOf(sf.toString()));
+        simulateur.setNbEnfantsACharge(enf);
+        simulateur.setNbEnfantsSituationHandicap(enfH);
+        simulateur.setParentIsole(false);
+        simulateur.setParentIsole(iso);
+
+        assertThrows(IllegalArgumentException.class, () -> simulateur.calculImpotSurRevenuNet());
+
+    }
+
+    public static Stream<Arguments> donneesParametres() {
+        return Stream.of(
+                Arguments.of(-100, 0, "MARIE", 0, 0, false),
+                Arguments.of(20000, 0, "CELIBATAIRE", -1, 0, false),
+                Arguments.of(20000, 0, "CELIBATAIRE", 0, -2, false),
+                Arguments.of(0, -100, "MARIE", 0, 0, false),
+                Arguments.of(0, 0, "MARIE", 8, 0, false),
+                Arguments.of(0, 0, "MARIE", 0, 0, true),
+                Arguments.of(0, 100, "CELIBATAIRE", 0, 0, false)
+        );
+    }
+
+
+
 }

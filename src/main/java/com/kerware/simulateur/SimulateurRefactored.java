@@ -90,7 +90,6 @@ public class SimulateurRefactored {
     private void verifierParametres(int r1, int r2, SituationFamiliale sf, int enf, int enfH, boolean iso) {
         if (r1 < 0 || r2 < 0) throw new IllegalArgumentException("Revenu net négatif");
         if (enf < 0 || enfH < 0) throw new IllegalArgumentException("Nombre d'enfants invalide");
-        if (sf == null) throw new IllegalArgumentException("Situation familiale nulle");
         if (enfH > enf) throw new IllegalArgumentException("Plus d'enfants handicapés que d'enfants");
         if (enf > 7) throw new IllegalArgumentException("Nombre d'enfants > 7 non supporté");
         if (iso && (sf == SituationFamiliale.MARIE || sf == SituationFamiliale.PACSE))
