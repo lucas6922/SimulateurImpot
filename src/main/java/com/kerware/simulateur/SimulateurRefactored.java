@@ -35,24 +35,24 @@ public class SimulateurRefactored {
             new TrancheCEHR(500_000, 1_000_000, 0.03),
             new TrancheCEHR(1_000_000, Integer.MAX_VALUE, 0.04)
     );
-    private final int[] limitesCEHR = {0, 250000, 500000, 1000000, Integer.MAX_VALUE};
-    private final double[] tauxCEHRCelibataire = {0.0, 0.03, 0.04, 0.04};
-    private final double[] tauxCEHRCouple = {0.0, 0.0, 0.03, 0.04};
+
 
     // Abattement
     private static final int ABATTEMENT_LIMIT_MIN = 495;
     private static final int ABATTEMENT_LIMIT_MAX = 14171;
-    private static final double tAbt = 0.1;
+    private static final double TAUX_ABATTEMENT = 0.1;
 
     // Plafonnement des effets du quotient familial
-    private final double plafDemiPart = 1759;
+    private static final double VALEUR_DEMI_PART = 0.5;
+    private static final double PLAF_DEMI_PART = 1759;
+    private static final double MAX_ENFANT = 7;
 
     // Décote
-    private final double seuilDecoteDeclarantSeul = 1929;
-    private final double seuilDecoteDeclarantCouple = 3191;
-    private final double decoteMaxDeclarantSeul = 873;
-    private final double decoteMaxDeclarantCouple = 1444;
-    private final double tauxDecote = 0.4525;
+    private static final double SEUIL_DECOTE_SEUL = 1929;
+    private static final double SEUIL_DECOTE_COUPLE = 3191;
+    private static final double DECOTE_MAX_SEUL = 873;
+    private static final double DECOTE_MAX_COUPLE = 1444;
+    private static final double TAUX_DECOTE = 0.4525;
 
     // --- Données de calcul (pour consultation) ---
     private int rNetDecl1 = 0, rNetDecl2 = 0;
@@ -113,7 +113,7 @@ public class SimulateurRefactored {
         if (r1 < 0 || r2 < 0) throw new IllegalArgumentException("Revenu net négatif");
         if (enf < 0 || enfH < 0) throw new IllegalArgumentException("Nombre d'enfants invalide");
         if (enfH > enf) throw new IllegalArgumentException("Plus d'enfants handicapés que d'enfants");
-        if (enf > 7) throw new IllegalArgumentException("Nombre d'enfants > 7 non supporté");
+        if (enf > MAX_ENFANT) throw new IllegalArgumentException("Nombre d'enfants > 7 non supporté");
         if (iso && (sf == SituationFamiliale.MARIE || sf == SituationFamiliale.PACSE))
             throw new IllegalArgumentException("Parent isolé ne peut être marié/pacsé");
         if ((sf == SituationFamiliale.CELIBATAIRE || sf == SituationFamiliale.DIVORCE || sf == SituationFamiliale.VEUF)
@@ -121,9 +121,9 @@ public class SimulateurRefactored {
     }
 
     private void calculAbattement(SituationFamiliale sf) {
-        long abt1 = Math.max(ABATTEMENT_LIMIT_MIN, Math.min(ABATTEMENT_LIMIT_MAX, Math.round(rNetDecl1 * tAbt)));
+        long abt1 = Math.max(ABATTEMENT_LIMIT_MIN, Math.min(ABATTEMENT_LIMIT_MAX, Math.round(rNetDecl1 * TAUX_ABATTEMENT)));
         long abt2 = (sf == SituationFamiliale.MARIE || sf == SituationFamiliale.PACSE)
-                ? Math.max(ABATTEMENT_LIMIT_MIN, Math.min(ABATTEMENT_LIMIT_MAX, Math.round(rNetDecl2 * tAbt))) : 0;
+                ? Math.max(ABATTEMENT_LIMIT_MIN, Math.min(ABATTEMENT_LIMIT_MAX, Math.round(rNetDecl2 * TAUX_ABATTEMENT))) : 0;
         this.abt = abt1 + abt2;
     }
 
@@ -133,11 +133,13 @@ public class SimulateurRefactored {
     }
 
     private void calculPartsFiscales(SituationFamiliale sf) {
-        nbPtsDecl = (sf == SituationFamiliale.MARIE || sf == SituationFamiliale.PACSE) ? 2 : 1;
-        nbPts = nbPtsDecl + ((nbEnf <= 2) ? nbEnf * 0.5 : 1 + (nbEnf - 2));
-        if (parIso && nbEnf > 0) nbPts += 0.5;
-        if (sf == SituationFamiliale.VEUF && nbEnf > 0) nbPts += 1;
-        nbPts += nbEnfH * 0.5;
+        nbPtsDecl = sf.isMarried() ? 2 : 1;
+        nbPts = nbPtsDecl
+                + ( nbEnf <= 2 ? nbEnf * VALEUR_DEMI_PART : 1 + (nbEnf - 2) )
+                + ( parIso && nbEnf > 0 ? VALEUR_DEMI_PART : 0 )
+                + ( sf.isVeuf() && nbEnf > 0 ? 1 : 0 )
+                + nbEnfH * VALEUR_DEMI_PART;
+
     }
 
     private void calculContributionExceptionnelle(SituationFamiliale sf) {
@@ -162,7 +164,7 @@ public class SimulateurRefactored {
 
     private void appliquerPlafondQF() {
         double ecartPts = nbPts - nbPtsDecl;
-        double plafond = (ecartPts / 0.5) * plafDemiPart;
+        double plafond = (ecartPts / VALEUR_DEMI_PART) * PLAF_DEMI_PART;
         double baisse = mImpDecl - mImp;
         if (baisse > plafond) {
             mImp = mImpDecl - plafond;
@@ -170,10 +172,10 @@ public class SimulateurRefactored {
     }
 
     private void appliquerDecote() {
-        if (nbPtsDecl == 1 && mImp < seuilDecoteDeclarantSeul) {
-            decote = decoteMaxDeclarantSeul - (mImp * tauxDecote);
-        } else if (nbPtsDecl == 2 && mImp < seuilDecoteDeclarantCouple) {
-            decote = decoteMaxDeclarantCouple - (mImp * tauxDecote);
+        if (nbPtsDecl == 1 && mImp < SEUIL_DECOTE_SEUL) {
+            decote = DECOTE_MAX_SEUL - (mImp * TAUX_DECOTE);
+        } else if (nbPtsDecl == 2 && mImp < SEUIL_DECOTE_COUPLE) {
+            decote = DECOTE_MAX_COUPLE - (mImp * TAUX_DECOTE);
         } else {
             decote = 0;
         }
