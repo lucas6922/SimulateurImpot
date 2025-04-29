@@ -1,5 +1,8 @@
 package com.kerware.simulateur;
 
+
+import java.util.List;
+
 /**
  * Simulateur d'impôt sur le revenu en France pour 2024 (revenus 2023).
  * Cas simples de contribuables avec différents statuts familiaux.
@@ -9,8 +12,14 @@ public class SimulateurRefactored {
     // --- Constantes fiscales ---
 
     // Tranches d'imposition
-    private final int[] limites = {0, 11294, 28797, 82341, 177106, Integer.MAX_VALUE};
-    private final double[] taux = {0.0, 0.11, 0.3, 0.41, 0.45};
+    private static final List<TrancheImpot> TRANCHES_IMPOT = List.of(
+            new TrancheImpot(0, 11_294, 0.0),
+            new TrancheImpot(11_294, 28_797, 0.11),
+            new TrancheImpot(28_797, 82_341, 0.30),
+            new TrancheImpot(82_341, 177_106, 0.41),
+            new TrancheImpot(177_106, Integer.MAX_VALUE, 0.45)
+    );
+
 
     // Contribution exceptionnelle sur les hauts revenus (CEHR)
     private final int[] limitesCEHR = {0, 250000, 500000, 1000000, Integer.MAX_VALUE};
@@ -132,10 +141,11 @@ public class SimulateurRefactored {
 
     private double calculImpotParTranche(double revenu) {
         double impot = 0;
-        for (int i = 0; i < taux.length; i++) {
-            if (revenu > limites[i]) {
-                double base = Math.min(revenu, limites[i + 1]) - limites[i];
-                impot += base * taux[i];
+
+        for (TrancheImpot tranche : TRANCHES_IMPOT){
+            if( revenu > tranche.borneInferieure() ) {
+                double base = Math.min(revenu, tranche.borneSuperieure()) - tranche.borneInferieure();
+                impot += base * tranche.taux();
             } else {
                 break;
             }
