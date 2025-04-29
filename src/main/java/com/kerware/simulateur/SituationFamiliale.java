@@ -5,5 +5,10 @@ public enum SituationFamiliale {
     PACSE,
     MARIE,
     DIVORCE,
-    VEUF
+    VEUF;
+
+    public boolean isSingle() {
+        return this == CELIBATAIRE || this == DIVORCE || this == VEUF;
+    }
 }
+

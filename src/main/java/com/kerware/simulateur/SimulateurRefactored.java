@@ -22,14 +22,27 @@ public class SimulateurRefactored {
 
 
     // Contribution exceptionnelle sur les hauts revenus (CEHR)
+    private static final List<TrancheCEHR> TRANCHES_CEHR_CELIBATAIRE = List.of(
+            new TrancheCEHR(0, 250_000, 0.0),
+            new TrancheCEHR(250_000, 500_000, 0.03),
+            new TrancheCEHR(500_000, 1_000_000, 0.04),
+            new TrancheCEHR(1_000_000, Integer.MAX_VALUE, 0.04)
+    );
+
+    private static final List<TrancheCEHR> TRANCHES_CEHR_COUPLE = List.of(
+            new TrancheCEHR(0, 250_000, 0.0),
+            new TrancheCEHR(250_000, 500_000, 0.0),
+            new TrancheCEHR(500_000, 1_000_000, 0.03),
+            new TrancheCEHR(1_000_000, Integer.MAX_VALUE, 0.04)
+    );
     private final int[] limitesCEHR = {0, 250000, 500000, 1000000, Integer.MAX_VALUE};
     private final double[] tauxCEHRCelibataire = {0.0, 0.03, 0.04, 0.04};
     private final double[] tauxCEHRCouple = {0.0, 0.0, 0.03, 0.04};
 
     // Abattement
-    private final int lAbtMax = 14171;
-    private final int lAbtMin = 495;
-    private final double tAbt = 0.1;
+    private static final int ABATTEMENT_LIMIT_MIN = 495;
+    private static final int ABATTEMENT_LIMIT_MAX = 14171;
+    private static final double tAbt = 0.1;
 
     // Plafonnement des effets du quotient familial
     private final double plafDemiPart = 1759;
@@ -76,7 +89,7 @@ public class SimulateurRefactored {
         calculAbattement(sitFam);
         calculPartsFiscales(sitFam);
         calculRevenuFiscal();
-        calculContributionExceptionnelle();
+        calculContributionExceptionnelle(sitFam);
 
         double impotBrutDecl = calculImpotParTranche(rFRef / nbPtsDecl) * nbPtsDecl;
         this.mImpDecl = Math.round(impotBrutDecl);
@@ -108,9 +121,9 @@ public class SimulateurRefactored {
     }
 
     private void calculAbattement(SituationFamiliale sf) {
-        long abt1 = Math.max(lAbtMin, Math.min(lAbtMax, Math.round(rNetDecl1 * tAbt)));
+        long abt1 = Math.max(ABATTEMENT_LIMIT_MIN, Math.min(ABATTEMENT_LIMIT_MAX, Math.round(rNetDecl1 * tAbt)));
         long abt2 = (sf == SituationFamiliale.MARIE || sf == SituationFamiliale.PACSE)
-                ? Math.max(lAbtMin, Math.min(lAbtMax, Math.round(rNetDecl2 * tAbt))) : 0;
+                ? Math.max(ABATTEMENT_LIMIT_MIN, Math.min(ABATTEMENT_LIMIT_MAX, Math.round(rNetDecl2 * tAbt))) : 0;
         this.abt = abt1 + abt2;
     }
 
@@ -127,28 +140,22 @@ public class SimulateurRefactored {
         nbPts += nbEnfH * 0.5;
     }
 
-    private void calculContributionExceptionnelle() {
-        contribExceptionnelle = 0;
-        double[] tauxCEHR = (nbPtsDecl == 1) ? tauxCEHRCelibataire : tauxCEHRCouple;
-        for (int i = 0; i < tauxCEHR.length; i++) {
-            if (rFRef > limitesCEHR[i]) {
-                double base = Math.min(rFRef, limitesCEHR[i + 1]) - limitesCEHR[i];
-                contribExceptionnelle += base * tauxCEHR[i];
-            }
-        }
-        contribExceptionnelle = Math.round(contribExceptionnelle);
+    private void calculContributionExceptionnelle(SituationFamiliale sf) {
+        List<TrancheCEHR> trancheCEHRS = sf.isSingle()
+                ? TRANCHES_CEHR_CELIBATAIRE : TRANCHES_CEHR_COUPLE;
+
+        double total = trancheCEHRS.stream().takeWhile(tranche -> rFRef > tranche.borneInferieure())
+                .mapToDouble(tranche -> tranche.baseTaxable(rFRef))
+                .sum();
+        this.contribExceptionnelle = Math.round(total);
     }
 
     private double calculImpotParTranche(double revenu) {
         double impot = 0;
 
         for (TrancheImpot tranche : TRANCHES_IMPOT){
-            if( revenu > tranche.borneInferieure() ) {
-                double base = Math.min(revenu, tranche.borneSuperieure()) - tranche.borneInferieure();
-                impot += base * tranche.taux();
-            } else {
-                break;
-            }
+            if( revenu <= tranche.borneInferieure() ) break;
+            impot += tranche.baseTaxable((revenu));
         }
         return impot;
     }
