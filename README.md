@@ -37,3 +37,19 @@ Ce projet simule le calcul de l'impôt sur le revenu en France pour l'année 202
 
 ## 3. Patron Adaptateur
 Pour préserver la compatibilité avec les tests unitaires et la logique d’injection de dépendances, nous avons défini une interface `ICalculateurImpot` et mis en place un adaptateur `AdaptateurSimulateur` qui traduit les appels anciens vers la nouvelle implémentation.
+
+## 4. Conformité Checkstyle
+
+Nous avons mis en forme le code pour garantir sa qualité selon les règles suivantes :
+
+Interdiction des nombres magiques, variables cachées et blocs vides.
+
+Respect des conventions de nommage (méthodes, constantes).
+
+Complexité cyclomatique limitée à 20.
+
+Complexité des expressions booléennes limitée à 5.
+
+Longueur des méthodes et nombre de paramètres contrôlés.
+
+Tous les modules Checkstyle définis ont été pris en compte et le projet est conforme aux règles spécifiées. Il y a 0 warnings, 0 error.
