@@ -35,5 +35,5 @@ Ce projet simule le calcul de l'impôt sur le revenu en France pour l'année 202
 
 ---
 
-## 3. Patron Adaptateur (Adapter)
+## 3. Patron Adaptateur
 Pour préserver la compatibilité avec les tests unitaires et la logique d’injection de dépendances, nous avons défini une interface `ICalculateurImpot` et mis en place un adaptateur `AdaptateurSimulateur` qui traduit les appels anciens vers la nouvelle implémentation.
