@@ -143,6 +143,7 @@ public class SimulateurRefactored {
     }
 
     private void calculContributionExceptionnelle(SituationFamiliale sf) {
+        // EXG_IMPOT_07 : sélection des tranches selon statut
         List<TrancheCEHR> trancheCEHRS = sf.isSingle()
                 ? TRANCHES_CEHR_CELIBATAIRE : TRANCHES_CEHR_COUPLE;
 
