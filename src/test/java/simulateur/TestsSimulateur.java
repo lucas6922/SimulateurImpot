@@ -295,7 +295,6 @@ public class TestsSimulateur {
         simulateur.setSituationFamiliale(SituationFamiliale.valueOf(sf.toString()));
         simulateur.setNbEnfantsACharge(enf);
         simulateur.setNbEnfantsSituationHandicap(enfH);
-        simulateur.setParentIsole(false);
         simulateur.setParentIsole(iso);
 
         assertThrows(IllegalArgumentException.class, () -> simulateur.calculImpotSurRevenuNet());
@@ -310,7 +309,14 @@ public class TestsSimulateur {
                 Arguments.of(0, -100, "MARIE", 0, 0, false),
                 Arguments.of(0, 0, "MARIE", 8, 0, false),
                 Arguments.of(0, 0, "MARIE", 0, 0, true),
-                Arguments.of(0, 100, "CELIBATAIRE", 0, 0, false)
+                Arguments.of(0, 100, "CELIBATAIRE", 0, 0, false),
+                Arguments.of(-1, -100, "MARIE", 0, 0, false),
+                Arguments.of(100, 100, "MARIE", 1, 0, true),
+                Arguments.of(0, -100, "PACSE", 1, 0, true),
+                Arguments.of(100, 100, "PACSE", 1, 2, false),
+                Arguments.of(100, 100, "CELIBATAIRE", 1, 0, true),
+                Arguments.of(100, 100, "DIVORCE", 0, 0, false),
+                Arguments.of(100, 100, "VEUF", 0, 0, false)
         );
     }
 
