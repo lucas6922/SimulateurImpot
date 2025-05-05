@@ -11,7 +11,7 @@ public class SimulateurRefactored {
 
     // --- Constantes fiscales ---
 
-    // Tranches d'imposition
+    // EXG_IMPOT_04 : Tranches d'imposition
     private static final List<TrancheImpot> TRANCHES_IMPOT = List.of(
             new TrancheImpot(0, 11_294, 0.0),
             new TrancheImpot(11_294, 28_797, 0.11),
@@ -21,7 +21,7 @@ public class SimulateurRefactored {
     );
 
 
-    // Contribution exceptionnelle sur les hauts revenus (CEHR)
+    // EXG_IMPOT_07 : Contribution exceptionnelle sur les hauts revenus - célibataire
     private static final List<TrancheCEHR> TRANCHES_CEHR_CELIBATAIRE = List.of(
             new TrancheCEHR(0, 250_000, 0.0),
             new TrancheCEHR(250_000, 500_000, 0.03),
@@ -29,6 +29,7 @@ public class SimulateurRefactored {
             new TrancheCEHR(1_000_000, Integer.MAX_VALUE, 0.04)
     );
 
+    // EXG_IMPOT_07 : Contribution exceptionnelle sur les hauts revenus - couple
     private static final List<TrancheCEHR> TRANCHES_CEHR_COUPLE = List.of(
             new TrancheCEHR(0, 250_000, 0.0),
             new TrancheCEHR(250_000, 500_000, 0.0),
@@ -37,12 +38,12 @@ public class SimulateurRefactored {
     );
 
 
-    // Abattement
+    // EXG_IMPOT_02 : Abattement de 10% borné entre 495 et 14 171 € par déclarant
     private static final int ABATTEMENT_LIMIT_MIN = 495;
     private static final int ABATTEMENT_LIMIT_MAX = 14171;
     private static final double TAUX_ABATTEMENT = 0.1;
 
-    // Plafonnement des effets du quotient familial
+    // EXG_IMPOT_03 : Plafonnement et calcul des demi-parts
     private static final double VALEUR_DEMI_PART = 0.5;
     private static final double PLAF_DEMI_PART = 1759;
     private static final double MAX_ENFANT = 7;
@@ -54,7 +55,7 @@ public class SimulateurRefactored {
     private static final double DECOTE_MAX_COUPLE = 1444;
     private static final double TAUX_DECOTE = 0.4525;
 
-    // --- Données de calcul (pour consultation) ---
+    // EXG_IMPOT_06 : Paramètres de décote
     private int rNetDecl1 = 0, rNetDecl2 = 0;
     private int nbEnf = 0, nbEnfH = 0;
     private double rFRef = 0, rImposable = 0, abt = 0;
@@ -86,21 +87,32 @@ public class SimulateurRefactored {
         this.nbEnfH = nbEnfantsHandicapes;
         this.parIso = parentIsol;
 
+        // EXG_IMPOT_02 : calcul de l'abattement fiscal
         calculAbattement(sitFam);
+        // EXG_IMPOT_03 : calcul du nombre de parts fiscales
         calculPartsFiscales(sitFam);
+
         calculRevenuFiscal();
+        // EXG_IMPOT_07 : contribution exceptionnelle pour hauts revenus
         calculContributionExceptionnelle(sitFam);
 
+        // EXG_IMPOT_04 : impôt brut séparé
         double impotBrutDecl = calculImpotParTranche(rFRef / nbPtsDecl) * nbPtsDecl;
+        // EXG_IMPOT_01 : arrondi à l'euro le plus proche
         this.mImpDecl = Math.round(impotBrutDecl);
 
+        // EXG_IMPOT_04 : impôt brut foyer
         double impotBrutFoyer = calculImpotParTranche(rFRef / nbPts) * nbPts;
+        // EXG_IMPOT_01 : arrondi provisoire
         this.mImp = Math.round(impotBrutFoyer);
 
+        // EXG_IMPOT_05 : plafonnement du quotient familial
         appliquerPlafondQF();
         this.mImpAvantDecote = mImp;
+        // EXG_IMPOT_06 : application de la décote
         appliquerDecote();
 
+        // Ajout de la contribution exceptionnelle et arrondi final (EXG_IMPOT_01)
         this.mImp += contribExceptionnelle;
         this.mImp = Math.round(mImp);
 
@@ -124,6 +136,7 @@ public class SimulateurRefactored {
         long abt1 = Math.max(ABATTEMENT_LIMIT_MIN, Math.min(ABATTEMENT_LIMIT_MAX, Math.round(rNetDecl1 * TAUX_ABATTEMENT)));
         long abt2 = (sf == SituationFamiliale.MARIE || sf == SituationFamiliale.PACSE)
                 ? Math.max(ABATTEMENT_LIMIT_MIN, Math.min(ABATTEMENT_LIMIT_MAX, Math.round(rNetDecl2 * TAUX_ABATTEMENT))) : 0;
+        // EXG_IMPOT_02 : somme des abattements par déclarant
         this.abt = abt1 + abt2;
     }
 
@@ -133,16 +146,22 @@ public class SimulateurRefactored {
     }
 
     private void calculPartsFiscales(SituationFamiliale sf) {
+        // EXG_IMPOT_03 : 1 part par déclarant
         nbPtsDecl = sf.isMarried() ? 2 : 1;
         nbPts = nbPtsDecl
+                // EXG_IMPOT_03 : 0,5 part pour 2 premiers enfants, puis 1 part à partir du 3e
                 + ( nbEnf <= 2 ? nbEnf * VALEUR_DEMI_PART : 1 + (nbEnf - 2) )
+                // EXG_IMPOT_03 : parent isolé +0,5 part
                 + ( parIso && nbEnf > 0 ? VALEUR_DEMI_PART : 0 )
+                // EXG_IMPOT_03 : veuf(-ve) conserve la part du conjoint +1 part
                 + ( sf.isVeuf() && nbEnf > 0 ? 1 : 0 )
+                // EXG_IMPOT_03 : enfant handicapé +0,5 part chacun
                 + nbEnfH * VALEUR_DEMI_PART;
 
     }
 
     private void calculContributionExceptionnelle(SituationFamiliale sf) {
+        // EXG_IMPOT_07 : sélection des tranches selon statut
         List<TrancheCEHR> trancheCEHRS = sf.isSingle()
                 ? TRANCHES_CEHR_CELIBATAIRE : TRANCHES_CEHR_COUPLE;
 
@@ -163,6 +182,7 @@ public class SimulateurRefactored {
     }
 
     private void appliquerPlafondQF() {
+        // EXG_IMPOT_05 : plafonnement du gain par demi-part supplémentaire à 1 759 €
         double ecartPts = nbPts - nbPtsDecl;
         double plafond = (ecartPts / VALEUR_DEMI_PART) * PLAF_DEMI_PART;
         double baisse = mImpDecl - mImp;
@@ -172,6 +192,7 @@ public class SimulateurRefactored {
     }
 
     private void appliquerDecote() {
+        // EXG_IMPOT_06 : application de la décote selon seuils
         if (nbPtsDecl == 1 && mImp < SEUIL_DECOTE_SEUL) {
             decote = DECOTE_MAX_SEUL - (mImp * TAUX_DECOTE);
         } else if (nbPtsDecl == 2 && mImp < SEUIL_DECOTE_COUPLE) {
